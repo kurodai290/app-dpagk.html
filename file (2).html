@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ドパガキ度診断</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background: linear-gradient(135deg, #1e1e2f, #2b2b45);
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .app {
+      width: min(720px, 92vw);
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 20px;
+      padding: 28px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.28);
+      backdrop-filter: blur(10px);
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+    }
+    .sub {
+      margin: 0 0 20px;
+      opacity: 0.8;
+      font-size: 14px;
+    }
+    .progress-wrap {
+      width: 100%;
+      height: 12px;
+      background: rgba(255,255,255,0.12);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-bottom: 22px;
+    }
+    .progress {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, #ff8a00, #ff3d7f);
+      transition: width 0.25s ease;
+    }
+    .qnum {
+      font-size: 14px;
+      opacity: 0.8;
+      margin-bottom: 10px;
+    }
+    .qtext {
+      font-size: 22px;
+      line-height: 1.5;
+      margin-bottom: 24px;
+      min-height: 90px;
+    }
+    .btns {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+    button {
+      border: none;
+      border-radius: 14px;
+      padding: 16px 18px;
+      font-size: 16px;
+      cursor: pointer;
+      color: #fff;
+      transition: transform 0.12s ease, opacity 0.12s ease;
+    }
+    button:hover { transform: translateY(-1px); opacity: 0.95; }
+    .yes { background: linear-gradient(135deg, #ff4d4d, #ff7a18); }
+    .no { background: linear-gradient(135deg, #2dd4bf, #2563eb); }
+    .screen { display: none; }
+    .screen.active { display: block; }
+
+    .result-title {
+      font-size: 24px;
+      margin: 0 0 12px;
+    }
+    .percent {
+      font-size: 54px;
+      font-weight: 800;
+      margin: 12px 0 18px;
+    }
+    .percent span { font-size: 22px; opacity: 0.85; }
+    .rank {
+      font-size: 20px;
+      margin: 0 0 14px;
+      line-height: 1.5;
+    }
+    .desc {
+      line-height: 1.8;
+      opacity: 0.95;
+      margin-bottom: 24px;
+      white-space: pre-wrap;
+    }
+    .result-actions {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+    .share { background: linear-gradient(135deg, #111827, #374151); }
+    .reset { background: linear-gradient(135deg, #8b5cf6, #ec4899); }
+
+    @media (max-width: 560px) {
+      .qtext { font-size: 19px; min-height: 110px; }
+      .btns, .result-actions { grid-template-columns: 1fr; }
+      .percent { font-size: 44px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div id="quiz-screen" class="screen active">
+      <h1>ドパガキ度診断</h1>
+      <p class="sub">ランダムに25問出題されます。</p>
+
+      <div class="progress-wrap">
+        <div id="progress" class="progress"></div>
+      </div>
+
+      <div id="q-num" class="qnum"></div>
+      <div id="q-text" class="qtext"></div>
+
+      <div class="btns">
+        <button class="yes" onclick="answer(2)">はい</button>
+        <button class="no" onclick="answer(0)">いいえ</button>
+      </div>
+    </div>
+
+    <div id="result-screen" class="screen">
+      <h1 class="result-title">診断結果</h1>
+      <div id="percent-display" class="percent">0<span>%</span></div>
+      <div id="rank-display" class="rank"></div>
+      <div id="desc-display" class="desc"></div>
+
+      <div class="result-actions">
+        <button class="share" onclick="shareX()">Xで共有</button>
+        <button class="reset" onclick="resetQuiz()">もう一度</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const allQuestions = [
+      "ショート動画（TikTokやReels）を見始めると、1時間以上止まらない。",
+      "スマホの通知が鳴っていないのに、画面を何度も確認してしまう。",
+      "朝、目が覚めて一番最初にやることはスマホのチェックだ。",
+      "食事中やトイレ、入浴中も常にスマホを手放せない。",
+      "SNSの「いいね」や数字の伸びが、その日の気分を大きく左右する。",
+      "YouTubeなどの動画は、基本的に1.5倍速以上で見ないとイライラする。",
+      "映画やアニメの途中の静かなシーンに耐えられず、10秒スキップを押してしまう。",
+      "音楽を聴くときは、イントロを飛ばしてサビだけを聴きがちだ。",
+      "ネタバレ（結末）をあらかじめ知ってからコンテンツを見ることが多い。",
+      "推し活やゲームのガチャで、生活費を削ってでも課金したことがある。",
+      "ゲームのデイリーミッションをクリアしないと強い不安を覚える。",
+      "ギャンブルや対戦ゲームで勝ったときの快感が忘れられない。",
+      "地道なレベル上げよりも、一発逆転のランダム要素（ガチャ等）が好きだ。",
+      "ゲームで負けが込むと、壁やコントローラーを叩きそうになる（台パン）。",
+      "深夜までゲームをしてしまい、次の日の予定に支障が出ることがよくある。",
+      "勉強や仕事中、5分と経たずに他のこと（スマホなど）を考えてしまう。",
+      "何もしていない退屈な時間が恐怖、または苦痛に感じる。",
+      "買い物をするとき、本当に欲しいものより限定に惹かれて即決する。",
+      "カフェイン飲料やエナジードリンクを毎日欠かさず飲んでいる。",
+      "刺激の強い食べ物（激辛、極甘、ラーメンなど）を無性に食べたくなる。",
+      "友達や家族と会話している最中も、頭の片隅でスマホが気になっている。",
+      "他人の幸せそうな投稿を見ると、強い焦りやマイナスの感情を覚える。",
+      "長文のテキストを読むのが苦手で、結論だけを早く知りたくなる。",
+      "夜、眠いのに何か面白いことはないかとダラダラ夜更かししてしまう。",
+      "自分の今の状態は、正直脳がバグっている（焼き切れている）と思う。",
+
+      "目的もなくアプリを開いて、気づいたら何分も経っている。",
+      "動画を1本見るつもりが、関連動画を延々と見続けてしまう。",
+      "新しい通知が来ていないか、無意識にロック画面を見てしまう。",
+      "暇になると、とりあえずスマホを触ってしまう。",
+      "集中したいのに、すぐ別タブや別アプリに逃げてしまう。",
+      "SNSを開いたまま閉じられず、寝るのが遅くなることが多い。",
+      "通知バッジの数字が消えていないと落ち着かない。",
+      "待ち時間が1分でも、スマホなしでは耐えにくい。",
+      "動画や配信の「切り抜き」ばかり見て、長尺がつらい。",
+      "ゲームやアプリのログインボーナスを逃すとかなり悔しい。",
+      "面白いコンテンツがあると、やめ時を見失う。",
+      "暇つぶしのつもりが、刺激の強いものをどんどん探してしまう。",
+      "食事や睡眠より、もう少しだけスマホを優先してしまうことがある。",
+      "リアルの予定より、オンラインの予定を優先しがちだ。",
+      "気づくと親指が勝手にスクロールしている。",
+      "退屈な会話や長い説明を途中で飛ばしたくなる。",
+      "気分転換のつもりで始めたことが、いつも長時間化する。",
+      "買う予定のないものでも、セールを見ると欲しくなる。",
+      "強い刺激に慣れて、普通の娯楽では物足りなく感じることがある。",
+      "起きている間、頭の中で何かしらの刺激を求め続けている気がする。"
+    ];
+
+    const totalQuestions = 25;
+    let questions = [];
+    let currentIdx = 0;
+    let totalScore = 0;
+    let finalPercent = 0;
+
+    function shuffle(array) {
+      const arr = array.slice();
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function startQuiz() {
+      questions = shuffle(allQuestions).slice(0, totalQuestions);
+      currentIdx = 0;
+      totalScore = 0;
+      finalPercent = 0;
+      document.getElementById("progress").style.width = "0%";
+      document.getElementById("result-screen").classList.remove("active");
+      document.getElementById("quiz-screen").classList.add("active");
+      updateQuestion();
+    }
+
+    function updateQuestion() {
+      if (currentIdx < questions.length) {
+        document.getElementById("q-num").innerText = `第 ${currentIdx + 1} 問 / ${questions.length}`;
+        document.getElementById("q-text").innerText = questions[currentIdx];
+        document.getElementById("progress").style.width = `${(currentIdx / questions.length) * 100}%`;
+      } else {
+        showResult();
+      }
+    }
+
+    function answer(points) {
+      totalScore += points;
+      currentIdx++;
+      updateQuestion();
+    }
+
+    function showResult() {
+      document.getElementById("quiz-screen").classList.remove("active");
+      document.getElementById("result-screen").classList.add("active");
+
+      finalPercent = Math.round((totalScore / (questions.length * 2)) * 100);
+      document.getElementById("percent-display").innerHTML = `${finalPercent}<span>%</span>`;
+
+      let rank = "";
+      let desc = "";
+
+      if (totalScore <= 10) {
+        rank = "😇 レベル1：聖人君子（健全ホワイト脳）";
+        desc = "素晴らしい！スマホやネットの誘惑に一切流されず、自分の時間をコントロールできています。現代において絶滅危惧種レベルの健康的な脳です。今の豊かな感性と生活をそのまま維持してください。";
+      } else if (totalScore <= 22) {
+        rank = "🙂 レベル2：一般的現代人（マイルド脳）";
+        desc = "標準的なスコアです。たまにスマホをダラダラ見てしまうことはありますが、日常生活や仕事・勉強に支障が出るほどではありません。自分でブレーキをかけられる理性がしっかりと残っています。";
+      } else if (totalScore <= 33) {
+        rank = "⚡ レベル3：ドパガキ予備軍（じわ焦げ脳）";
+        desc = "少し黄色信号が出ています。退屈な時間を「スマホを見ずに過ごす」のが難しくなっていませんか？ショート動画のハシゴやタイパ重視のコンテンツ消費が日常化しており、徐々に強い刺激に依存し始めています。";
+      } else if (totalScore <= 44) {
+        rank = "🔥 レベル4：ガチドパガキ（脳焼け寸前）";
+        desc = "かなり危険域です。刺激の強いコンテンツや即時報酬に脳が慣れきっており、普通の娯楽では物足りなくなっている可能性があります。意識的にスマホ断ちやデジタルデトックスを入れるべき状態です。";
+      } else {
+        rank = "💀 レベル5：完全ドパガキ（脳が終わっている）";
+        desc = "ほぼ末期です。日常のあらゆる場面で刺激を求め続け、静かな時間や地道な作業に耐えられなくなっています。このままでは集中力・睡眠・生活習慣のすべてが崩壊しかねません。今すぐ強制的に刺激を減らす対策が必要です。";
+      }
+
+      document.getElementById("rank-display").innerText = rank;
+      document.getElementById("desc-display").innerText = desc;
+    }
+
+    function shareX() {
+      const text = `ドパガキ度診断の結果は${document.getElementById("percent-display").innerText}でした！`;
+      const url = "https://twitter.com/intent/tweet?text=" + encodeURIComponent(text);
+      window.open(url, "_blank");
+    }
+
+    function resetQuiz() {
+      startQuiz();
+    }
+
+    startQuiz();
+  </script>
+</body>
+</html>
